@@ -9,7 +9,7 @@ This script generates:
 """
 
 # ============================================================
-# import dependencies
+# Import dependencies
 # ============================================================
 
 import pandas as pd
@@ -19,7 +19,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 
 # ============================================================
-# initialize variables
+# Initialize variables
 # ============================================================
 
 DATA_FILE = "temperature_daily.csv"
@@ -30,7 +30,7 @@ LEVEL2_OUTPUT = "level2.html"
 LEVEL2_START_YEAR = 2008
 LEVEL2_END_YEAR = 2017
 
-# calibrate scale for temperature in celsius
+# Calibrate scale for temperature in celsius
 TEMP_COLORSCALE = [
     [0.0, "#67001f"],  
     [0.2, "#d6604d"],
@@ -44,3 +44,66 @@ MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
 ]
+
+# ============================================================
+# Load data and preparation
+# ============================================================
+
+def load_temperature_data(filepath: str) -> pd.DataFrame:
+    """Load and parse the daily temperature csv file"""
+
+    df = pd.read_csv(filepath, parse_dates=["date"])
+
+    df["year"] = df["date"].dt.year
+    df["month"] = df["date"].dt.month
+    df["day"] = df["date"].dt.day
+
+    return df
+
+
+def compute_monthly_aggregates(df: pd.DataFrame,
+                               temp_col: str) -> pd.DataFrame:
+    """
+    Aggregate daily temperatures to monthly max/min values
+
+    Args:
+        df: Daily temperature DataFrame
+        temp_col: Column name to aggregate
+
+    Returns:
+        DataFrame with columns ['year', 'month', temp_col]
+    """
+    monthly = (
+        df.groupby(["year", "month"])[temp_col]
+          .agg(["max", "min"])
+          .reset_index()
+    )
+
+    return monthly
+
+
+def pivot_monthly_matrix(monthly_df: pd.DataFrame,
+                         value_col: str) -> pd.DataFrame:
+    """
+    Convert monthly data into a year x month matrix
+
+    Args:
+        monthly_df: DataFrame with ['year', 'month', value_col]
+        value_col: Column to pivot
+
+    Returns:
+        DataFrame indexed by year, columns = months (1-12)
+    """
+
+    # Pivot columns
+    matrix = monthly_df.pivot(
+        index="year", columns="month", values=value_col
+    )
+
+    # Check that all 12 months exist
+    for m in range(1, 13):
+        # Fill with nan's if it doesn't exist
+        if m not in matrix.columns:
+            matrix[m] = np.nan
+
+    return matrix[sorted(matrix.columns)]
